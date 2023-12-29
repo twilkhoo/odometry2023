@@ -1,10 +1,47 @@
 #include <iostream>
+#include <memory>
 #include "main.h"
 #include "Odom.h"
 #include "motionalgos.h"
 #include "portdef.h"
 #include "globals.h"
 #include "drive.h"
+
+// Task Setup.
+
+void UpdateOdometry(void* _chassis){
+  while (true) {
+    std::shared_ptr<Odom>* chassis = static_cast<std::shared_ptr<Odom>*>(_chassis);
+
+    (*chassis)->updateOdom(encoderLeft.get_value(), encoderRight.get_value(), encoderBack.get_value());
+
+    pros::delay(20);
+  }
+}
+
+void PrintOdometry(void* _chassis){
+  while (true) {
+    std::shared_ptr<Odom>* chassis = static_cast<std::shared_ptr<Odom>*>(_chassis);
+
+    pros::lcd::print(0, "x: %lf", (*chassis)->getX());
+    pros::lcd::print(1, "y: %lf", (*chassis)->getY());
+    pros::lcd::print(2, "a: %lf", (*chassis)->getHeading());
+
+    pros::delay(20);
+  }
+}
+
+void PrintEncs(){
+  while (true) {
+    pros::lcd::print(4, "rEnc: %d", encoderLeft.get_value());
+    pros::lcd::print(5, "lEnc: %d", encoderLeft.get_value());
+    pros::lcd::print(6, "bEnc: %d", encoderLeft.get_value());
+
+    pros::delay(20);
+  }
+}
+
+// Pros required config.
 
 void on_center_button() {
 	static bool pressed = false;
@@ -33,22 +70,11 @@ void opcontrol() {
   // Create the odom class.
   auto chassis = std::make_shared<Odom>(7.125, 7.125, 7.0625, 2.4125);
 
+  pros::Task RunOdom(UpdateOdometry, static_cast<void*>(chassis.get()));
+  pros::Task PrintOdom(UpdateOdometry, static_cast<void*>(chassis.get()));
+  pros::Task PrintRawEnc(PrintEncs);
+
 	while (true) {
-    // Capturing current raw values.
-    int lEncRawVal = encoderLeft.get_value();
-    int rEncRawVal = encoderRight.get_value();
-    int bEncRawVal = encoderBack.get_value();
-
-    chassis->updateOdom(lEncRawVal, rEncRawVal, bEncRawVal);
-
-    pros::lcd::print(0, "x: %lf", chassis->getX());
-    pros::lcd::print(1, "y: %lf", chassis->getY());
-    pros::lcd::print(2, "a: %lf", chassis->getHeading());
-
-    pros::lcd::print(4, "rEnc: %d", lEncRawVal);
-    pros::lcd::print(5, "lEnc: %d", rEncRawVal);
-    pros::lcd::print(6, "bEnc: %d", bEncRawVal);
-
     // This works since the V5 screen doesn't have multitouch.
     if ((pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1) {
       encoderLeft.reset();
